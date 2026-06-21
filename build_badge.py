@@ -11,15 +11,24 @@ LOGO_PNG = HERE / "logo48.png"
 
 JS_TEMPLATE = r'''/*!
  * MachuPicchu AI - sello "hecho con MachuPicchu AI"
- * Self-contained badge. Injects a small fixed bottom-right cream pill that links
+ * Self-contained badge. Injects a small fixed BOTTOM-LEFT cream pill that links
  * to https://machupicchu.dev. Served via jsDelivr from
  * https://github.com/daybigo/MachuPicchu-badge
  *
+ * Behaviour:
+ *  - NEVER renders inside an iframe (e.g. the IDE preview): only on the
+ *    published / standalone page.
+ *  - On hover it shows a small "x" to dismiss it for the current view; on page
+ *    refresh the badge comes back.
+ *
  * Usage (already wired into the MachuPicchu template, keep it forever):
- *   <script src="https://cdn.jsdelivr.net/gh/daybigo/MachuPicchu-badge@v1/badge.js" defer></script>
+ *   <script src="https://cdn.jsdelivr.net/gh/daybigo/MachuPicchu-badge@v2/badge.js" defer></script>
  */
 (function () {
   try {
+    // El sello NUNCA debe verse dentro de un iframe (p.ej. el preview del IDE).
+    // Solo aparece en la web publicada/standalone. Si estamos embebidos, salir.
+    if (window.self !== window.top) return;
     if (window.__mpaiBadgeMounted) return;
     window.__mpaiBadgeMounted = true;
 
@@ -30,17 +39,22 @@ JS_TEMPLATE = r'''/*!
       var host = document.body || document.documentElement;
       if (!host) return;
 
+      var wrap = document.createElement("div");
+      wrap.id = "mpai-badge";
+      wrap.style.cssText = [
+        "position:fixed",
+        "left:16px",
+        "bottom:16px",
+        "z-index:2147483600",
+        "display:inline-block"
+      ].join(";");
+
       var a = document.createElement("a");
-      a.id = "mpai-badge";
       a.href = "https://machupicchu.dev";
       a.target = "_blank";
       a.rel = "noopener noreferrer";
       a.setAttribute("aria-label", "hecho con MachuPicchu AI");
       a.style.cssText = [
-        "position:fixed",
-        "right:16px",
-        "bottom:16px",
-        "z-index:2147483600",
         "display:inline-flex",
         "align-items:center",
         "gap:7px",
@@ -72,16 +86,55 @@ JS_TEMPLATE = r'''/*!
       a.appendChild(img);
       a.appendChild(span);
 
-      a.addEventListener("mouseenter", function () {
-        a.style.transform = "translateY(-2px)";
-        a.style.boxShadow = "0 8px 20px rgba(0,0,0,.16)";
-      });
-      a.addEventListener("mouseleave", function () {
-        a.style.transform = "none";
-        a.style.boxShadow = "0 4px 14px rgba(0,0,0,.12)";
+      // Boton de cierre (x): aparece al hacer hover. Cierra el sello SOLO en esta
+      // vista; al refrescar la pagina el sello vuelve a aparecer.
+      var close = document.createElement("button");
+      close.type = "button";
+      close.setAttribute("aria-label", "Cerrar");
+      close.innerHTML = "&times;";
+      close.style.cssText = [
+        "position:absolute",
+        "top:-8px",
+        "right:-8px",
+        "width:18px",
+        "height:18px",
+        "padding:0",
+        "display:flex",
+        "align-items:center",
+        "justify-content:center",
+        "background:#2d2219",
+        "color:#fff",
+        "border:none",
+        "border-radius:9999px",
+        "box-shadow:0 2px 6px rgba(0,0,0,.3)",
+        "font:700 13px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif",
+        "cursor:pointer",
+        "opacity:0",
+        "pointer-events:none",
+        "transition:opacity .15s ease"
+      ].join(";");
+      close.addEventListener("click", function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        wrap.remove();
       });
 
-      host.appendChild(a);
+      wrap.addEventListener("mouseenter", function () {
+        a.style.transform = "translateY(-2px)";
+        a.style.boxShadow = "0 8px 20px rgba(0,0,0,.16)";
+        close.style.opacity = "1";
+        close.style.pointerEvents = "auto";
+      });
+      wrap.addEventListener("mouseleave", function () {
+        a.style.transform = "none";
+        a.style.boxShadow = "0 4px 14px rgba(0,0,0,.12)";
+        close.style.opacity = "0";
+        close.style.pointerEvents = "none";
+      });
+
+      wrap.appendChild(a);
+      wrap.appendChild(close);
+      host.appendChild(wrap);
     }
 
     if (document.readyState === "loading") {
